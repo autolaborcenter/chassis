@@ -1,4 +1,4 @@
-﻿use crate::{isometry, Isometry2, Velocity};
+﻿use crate::Isometry2;
 use std::fmt::Display;
 
 /// 里程计模型，表示当前机器人位姿
@@ -32,25 +32,6 @@ impl Odometry {
         a: 0.0,
         pose: crate::isometry(0.0, 0.0, 1.0, 0.0),
     };
-}
-
-/// 从单位时间内 Velocity 表示的圆轨迹生成里程增量
-impl From<Velocity> for Odometry {
-    fn from(vel: Velocity) -> Self {
-        let Velocity { v: s, w: theta } = vel;
-        let a = theta.abs();
-        let (sin, cos) = theta.sin_cos();
-        Self {
-            s: s.abs(),
-            a,
-            pose: if a < f32::EPSILON {
-                isometry(s, 0.0, cos, sin)
-            } else {
-                let radius = s / theta;
-                isometry(radius * sin, radius * (1.0 - cos), cos, sin)
-            },
-        }
-    }
 }
 
 /// 重载 `+=`。
@@ -90,10 +71,13 @@ impl Display for Odometry {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::f32::{consts::PI, EPSILON};
+#[test]
+fn odometry_test() {
+    use crate::Velocity;
+    use std::{
+        f32::{consts::PI, EPSILON},
+        time::Duration,
+    };
 
     #[inline]
     fn pose_equal(a: Isometry2<f32>, b: Isometry2<f32>) -> bool {
@@ -103,32 +87,29 @@ mod tests {
         result
     }
 
-    #[test]
-    fn odometry_test() {
-        //测试里程计原点及输出是否正确
-        let mut od = Odometry::ZERO;
-        assert_eq!(
-            format!("{}", od),
-            "Odometry: { s: 0.000, a: 0.0°, x: 0.000, y: 0.000, theta: 0.0° }"
-        );
-        //测试机器人从原点出发，行进一整个圆是否会回到原点
-        let radius = 100.0;
-        let circumference = 2.0 * PI * radius;
-        let step_num = 10.0 as f32;
-        let delta_vel = Velocity {
-            v: (circumference / step_num),
-            w: (PI * 2.0 / step_num),
-        };
-        let delta_od = Odometry::from(delta_vel);
+    //测试里程计原点及输出是否正确
+    let mut od = Odometry::ZERO;
+    assert_eq!(
+        format!("{}", od),
+        "Odometry: { s: 0.000, a: 0.0°, x: 0.000, y: 0.000, theta: 0.0° }"
+    );
+    //测试机器人从原点出发，行进一整个圆是否会回到原点
+    let radius = 100.0;
+    let circumference = 2.0 * PI * radius;
+    let step_num = 10.0 as f32;
+    let delta_vel = Velocity {
+        v: (circumference / step_num),
+        w: (PI * 2.0 / step_num),
+    };
+    let delta_od = delta_vel * Duration::from_secs(1);
 
-        for _ in 0..10 {
-            od += delta_od;
-        }
-        assert!(
-            pose_equal(od.pose, Odometry::ZERO.pose),
-            "{} != {}",
-            od.pose,
-            Odometry::ZERO.pose
-        );
+    for _ in 0..10 {
+        od += delta_od;
     }
+    assert!(
+        pose_equal(od.pose, Odometry::ZERO.pose),
+        "{} != {}",
+        od.pose,
+        Odometry::ZERO.pose
+    );
 }

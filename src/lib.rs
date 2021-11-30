@@ -1,6 +1,8 @@
 mod odometry;
 mod predict;
 
+use std::time::Duration;
+
 pub use nalgebra::Isometry2;
 pub use odometry::Odometry;
 pub use predict::{StatusPredictor, TrajectoryPredictor};
@@ -21,6 +23,32 @@ pub struct Velocity {
     pub v: f32,
     /// 旋转中心相对地面角速度 rad/s
     pub w: f32,
+}
+
+impl std::ops::Mul<Duration> for Velocity {
+    type Output = Odometry;
+
+    fn mul(self, rhs: Duration) -> Self::Output {
+        let Velocity {
+            v: mut s,
+            w: mut theta,
+        } = self;
+        let seconds = rhs.as_secs_f32();
+        s *= seconds;
+        theta *= seconds;
+        let a = theta.abs();
+        let (sin, cos) = theta.sin_cos();
+        Self::Output {
+            s: s.abs(),
+            a,
+            pose: if a < f32::EPSILON {
+                isometry(s, 0.0, cos, sin)
+            } else {
+                let radius = s / theta;
+                isometry(radius * sin, radius * (1.0 - cos), cos, sin)
+            },
+        }
+    }
 }
 
 #[inline]

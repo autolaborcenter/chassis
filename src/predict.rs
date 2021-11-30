@@ -28,6 +28,6 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.predictor
             .next()
-            .map(|s| Odometry::from(self.model.volocity_from(&s)))
+            .map(|s| self.model.volocity_from(&s) * self.period)
     }
 }
