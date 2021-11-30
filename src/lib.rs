@@ -1,7 +1,9 @@
 mod odometry;
 mod predict;
 
+pub use nalgebra::Isometry2;
 pub use odometry::Odometry;
+pub use predict::{StatusPredictor, TrajectoryPredictor};
 
 /// 底盘模型
 pub trait ChassisModel {
@@ -19,4 +21,16 @@ pub struct Velocity {
     pub v: f32,
     /// 旋转中心相对地面角速度 rad/s
     pub w: f32,
+}
+
+#[inline]
+pub const fn isometry(x: f32, y: f32, cos: f32, sin: f32) -> Isometry2<f32> {
+    use nalgebra::{ArrayStorage, Complex, SVector, Translation, Unit};
+
+    Isometry2 {
+        translation: Translation {
+            vector: SVector::from_array_storage(ArrayStorage([[x, y]])),
+        },
+        rotation: Unit::new_unchecked(Complex { re: cos, im: sin }),
+    }
 }

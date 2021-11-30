@@ -1,5 +1,4 @@
-﻿use crate::Velocity;
-use nalgebra::{ArrayStorage, Complex, Isometry2, SVector, Translation, Unit, Vector2};
+﻿use crate::{isometry, Isometry2, Velocity};
 use std::fmt::Display;
 
 /// 里程计模型，表示当前机器人位姿
@@ -31,12 +30,7 @@ impl Odometry {
     pub const ZERO: Self = Self {
         s: 0.0,
         a: 0.0,
-        pose: Isometry2 {
-            translation: Translation {
-                vector: SVector::from_array_storage(ArrayStorage([[0.0, 0.0]])),
-            },
-            rotation: Unit::new_unchecked(Complex { re: 1.0, im: 0.0 }),
-        },
+        pose: crate::isometry(0.0, 0.0, 1.0, 0.0),
     };
 }
 
@@ -45,18 +39,16 @@ impl From<Velocity> for Odometry {
     fn from(vel: Velocity) -> Self {
         let Velocity { v: s, w: theta } = vel;
         let a = theta.abs();
-
+        let (sin, cos) = theta.sin_cos();
         Self {
             s: s.abs(),
             a,
-            pose: Isometry2::new(
-                if a < f32::EPSILON {
-                    Vector2::new(s, 0.0)
-                } else {
-                    Vector2::new(theta.sin(), 1.0 - theta.cos()) * (s / theta)
-                },
-                theta,
-            ),
+            pose: if a < f32::EPSILON {
+                isometry(s, 0.0, cos, sin)
+            } else {
+                let radius = s / theta;
+                isometry(radius * sin, radius * (1.0 - cos), cos, sin)
+            },
         }
     }
 }
