@@ -4,22 +4,26 @@ use std::time::Duration;
 /// 状态预测器
 ///
 /// 利用给定的机器人参数，根据当前状态和目标状态预测下一周期机器人的状态
-pub trait StatusPredictor<S>: Clone + Iterator<Item = S> {}
+pub trait StatusPredictor: Clone {
+    type Model: ChassisModel;
+
+    /// 预测下一周期以 `State` 表示的状态
+    fn predict(&mut self) -> Option<<Self::Model as ChassisModel>::State>;
+}
 
 /// 轨迹预测器
 ///
 /// 利用给定的机器人参数，根据当前状态和目标状态预测一个周期中机器人里程的增量
 #[derive(Clone)]
-pub struct TrajectoryPredictor<M, P> {
+pub struct TrajectoryPredictor<P: StatusPredictor> {
     pub period: Duration, // 控制周期
-    pub model: M,         // 机器人模型
+    pub model: P::Model,  // 机器人模型
     pub predictor: P,     // 状态预测器
 }
 
-impl<M, P> Iterator for TrajectoryPredictor<M, P>
+impl<P> Iterator for TrajectoryPredictor<P>
 where
-    M: ChassisModel,
-    P: StatusPredictor<M::State>,
+    P: StatusPredictor,
 {
     type Item = Odometry;
 
@@ -27,7 +31,7 @@ where
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.predictor
-            .next()
+            .predict()
             .map(|s| self.model.volocity_from(&s) * self.period)
     }
 }
