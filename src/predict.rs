@@ -32,6 +32,6 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.predictor
             .predict()
-            .map(|s| self.model.volocity_from(&s) * self.period)
+            .map(|s| self.model.drive(&s) * self.period)
     }
 }

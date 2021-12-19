@@ -12,8 +12,14 @@ pub trait ChassisModel {
     /// `State` 应该完备地表征底盘运动状态
     type State;
 
+    /// `Measure` 表示对里程的测量
+    type Measure;
+
     /// 根据一个状态估计底盘转动中心相对地面的速度
-    fn volocity_from(&self, s: &Self::State) -> Velocity;
+    fn drive(&self, s: &Self::State) -> Velocity;
+
+    /// 根据一个测量估计底盘转动中心相对地面的速度
+    fn measure(&self, m: &Self::Measure) -> Velocity;
 }
 
 /// 刚体速度模型
@@ -25,20 +31,12 @@ pub struct Velocity {
     pub w: f32,
 }
 
-impl std::ops::Mul<Duration> for Velocity {
-    type Output = Odometry;
-
-    fn mul(self, rhs: Duration) -> Self::Output {
-        let Velocity {
-            v: mut s,
-            w: mut theta,
-        } = self;
-        let seconds = rhs.as_secs_f32();
-        s *= seconds;
-        theta *= seconds;
+impl Velocity {
+    pub fn to_odometry(&self) -> Odometry {
+        let Velocity { v: s, w: theta } = *self;
         let a = theta.abs();
         let (sin, cos) = theta.sin_cos();
-        Self::Output {
+        Odometry {
             s: s.abs(),
             a,
             pose: if a < f32::EPSILON {
@@ -48,6 +46,26 @@ impl std::ops::Mul<Duration> for Velocity {
                 isometry(radius * sin, radius * (1.0 - cos), cos, sin)
             },
         }
+    }
+}
+
+impl std::ops::Mul<f32> for Velocity {
+    type Output = Odometry;
+
+    #[inline]
+    fn mul(mut self, rhs: f32) -> Self::Output {
+        self.v *= rhs;
+        self.w *= rhs;
+        self.to_odometry()
+    }
+}
+
+impl std::ops::Mul<Duration> for Velocity {
+    type Output = Odometry;
+
+    #[inline]
+    fn mul(self, rhs: Duration) -> Self::Output {
+        self * rhs.as_secs_f32()
     }
 }
 
