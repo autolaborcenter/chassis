@@ -1,8 +1,6 @@
 mod odometry;
 mod predict;
 
-use std::time::Duration;
-
 pub use nalgebra::Isometry2;
 pub use odometry::Odometry;
 pub use predict::{StatusPredictor, TrajectoryPredictor};
@@ -32,6 +30,7 @@ pub struct Velocity {
 }
 
 impl Velocity {
+    /// 计算按此速度移动 1 秒的里程增量
     pub fn to_odometry(&self) -> Odometry {
         let Velocity { v: s, w: theta } = *self;
         let a = theta.abs();
@@ -49,28 +48,38 @@ impl Velocity {
     }
 }
 
-impl std::ops::Mul<f32> for Velocity {
-    type Output = Odometry;
-
+impl std::ops::MulAssign<f32> for Velocity {
+    /// 速度的原地数乘
     #[inline]
-    fn mul(mut self, rhs: f32) -> Self::Output {
+    fn mul_assign(&mut self, rhs: f32) {
         self.v *= rhs;
         self.w *= rhs;
-        self.to_odometry()
     }
 }
 
-impl std::ops::Mul<Duration> for Velocity {
+impl std::ops::Mul<f32> for Velocity {
+    type Output = Self;
+
+    /// 速度的数乘
+    #[inline]
+    fn mul(mut self, rhs: f32) -> Self::Output {
+        self *= rhs;
+        self
+    }
+}
+
+impl std::ops::Mul<std::time::Duration> for Velocity {
     type Output = Odometry;
 
+    /// 里程增量 = 速度 × 时间
     #[inline]
-    fn mul(self, rhs: Duration) -> Self::Output {
-        self * rhs.as_secs_f32()
+    fn mul(self, rhs: std::time::Duration) -> Self::Output {
+        (self * rhs.as_secs_f32()).to_odometry()
     }
 }
 
 #[inline]
-pub const fn isometry(x: f32, y: f32, cos: f32, sin: f32) -> Isometry2<f32> {
+const fn isometry(x: f32, y: f32, cos: f32, sin: f32) -> Isometry2<f32> {
     use nalgebra::{ArrayStorage, Complex, SVector, Translation, Unit};
 
     Isometry2 {

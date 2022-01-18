@@ -1,7 +1,4 @@
-﻿use crate::Isometry2;
-use std::fmt::Display;
-
-/// 里程计模型，表示当前机器人位姿
+﻿/// 里程计模型，表示当前机器人位姿
 ///
 /// 采用两轮差动模型，轨迹为圆弧，给定单步弧长、转角 `(s，theta)`，累计得到当前位置和姿态 `pose`
 ///
@@ -22,11 +19,11 @@ pub struct Odometry {
     /// 这个量是单调增的
     pub a: f32,
     /// 机器人当前位置及角度，采用刚体变换 SE(2) 来表示位姿，即一个 2 维平移和一个 2 维旋转
-    pub pose: Isometry2<f32>,
+    pub pose: crate::Isometry2<f32>,
 }
 
 impl Odometry {
-    /// 里程计零，常用于初始化
+    /// 零里程，用于初始化
     pub const ZERO: Self = Self {
         s: 0.0,
         a: 0.0,
@@ -34,8 +31,9 @@ impl Odometry {
     };
 }
 
-/// 重载 `+=`。
+/// 里程原地求和
 impl std::ops::AddAssign for Odometry {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
         self.s += rhs.s;
         self.a += rhs.a;
@@ -44,20 +42,20 @@ impl std::ops::AddAssign for Odometry {
     }
 }
 
-/// 重载 +。
+/// 里程求和
 ///
-/// `self` + `rhs` 即从 `self` 出发再行驶 `rhs`。
+/// `self` + `rhs` 即从 `self` 出发再行驶 `rhs`
 impl std::ops::Add for Odometry {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        let mut copy = self.clone();
-        copy += rhs;
-        copy
+    #[inline]
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+        self
     }
 }
 
-impl Display for Odometry {
+impl std::fmt::Display for Odometry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -80,36 +78,35 @@ fn odometry_test() {
     };
 
     #[inline]
-    fn pose_equal(a: Isometry2<f32>, b: Isometry2<f32>) -> bool {
-        let mut result = (a.translation.vector[0] - b.translation.vector[0]).abs() <= EPSILON;
-        result = result || (a.translation.vector[1] - b.translation.vector[1]).abs() <= EPSILON;
-        result = result || (a.rotation.angle() - b.rotation.angle()).abs() <= EPSILON;
-        result
+    fn pose_equal(a: crate::Isometry2<f32>, b: crate::Isometry2<f32>) -> bool {
+        (a.translation.vector[0] - b.translation.vector[0]).abs() <= EPSILON
+            || (a.translation.vector[1] - b.translation.vector[1]).abs() <= EPSILON
+            || (a.rotation.angle() - b.rotation.angle()).abs() <= EPSILON
     }
 
     //测试里程计原点及输出是否正确
-    let mut od = Odometry::ZERO;
+    let mut d = Odometry::ZERO;
     assert_eq!(
-        format!("{}", od),
+        format!("{d}"),
         "Odometry: { s: 0.000, a: 0.0°, x: 0.000, y: 0.000, theta: 0.0° }"
     );
     //测试机器人从原点出发，行进一整个圆是否会回到原点
     let radius = 100.0;
     let circumference = 2.0 * PI * radius;
-    let step_num = 10.0 as f32;
+    let step_num = 10.0;
     let delta_vel = Velocity {
         v: (circumference / step_num),
         w: (PI * 2.0 / step_num),
     };
-    let delta_od = delta_vel * Duration::from_secs(1);
+    let dd = delta_vel * Duration::from_secs(1);
 
     for _ in 0..10 {
-        od += delta_od;
+        d += dd;
     }
     assert!(
-        pose_equal(od.pose, Odometry::ZERO.pose),
+        pose_equal(d.pose, Odometry::ZERO.pose),
         "{} != {}",
-        od.pose,
+        d.pose,
         Odometry::ZERO.pose
     );
 }

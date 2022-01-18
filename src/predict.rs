@@ -5,6 +5,7 @@ use std::time::Duration;
 ///
 /// 利用给定的机器人参数，根据当前状态和目标状态预测下一周期机器人的状态
 pub trait StatusPredictor: Clone {
+    /// 用于预测的机器人模型
     type Model: ChassisModel;
 
     /// 预测下一周期以 `State` 表示的状态
